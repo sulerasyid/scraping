@@ -1,6 +1,6 @@
 import requests
 import bs4
-
+import  pandas as pd 
 
 def call_brands():
     url='https://redstarexhaustusa.com/vehicle-make'
@@ -21,48 +21,83 @@ def call_brands():
         brands.append(item)
     return brands
 
-def call_list():
-    url='https://redstarexhaustusa.com/aston-martin'
+def call_list(url):
+    # url='https://redstarexhaustusa.com/aston-martin'
     contents = requests.get(url)
     respond = bs4.BeautifulSoup(contents.text, 'html.parser')
     grids = respond.find_all('ul', {'class': 'product_list grid row'})
+    urls =[]
     for grid in grids :
         for litag in grid.find_all('li'):
             url = litag.find('a')['href']
-            print (url)
+            urlItem = {
+                'url':url
+            }
+            urls.append(urlItem)
+    return urls
 def is_checked(tag):
     return tag.has_attr('checked')
 
-def detail_url():
-    url="https://redstarexhaustusa.com/aston-martin-db11-40-primary-downpipes"
+def detail_url(url):
     htmlPage = get_html(url=url)
     referenceHtml = htmlPage.find(attrs={'id':'product_reference'})
     ProductReference= referenceHtml.find(attrs={'class':'editable'})['content']
     productNameHtml = htmlPage.find(attrs={'class':'pb-center-column'})
     productName = productNameHtml.find('h1').string
     brand  = productNameHtml.find(attrs={'id':'product_manufacturer'}).find('a')['title']
-    # specificOne = boxProductHtml.find(attrs={'class':'attribute_label'}).string
-    # specificOneValueHtml = boxProductHtml.find(attrs={'class':'attribute_list'}).find('input',attrs={'name':'group_6'}).has_attr('checked')
-    ShortDescription = htmlPage.find(attrs={'id':'short_description_content'}).find('span').text
+    ShortDescription = htmlPage.find(attrs={'id':'short_description_content'}).text
     DataSheet = htmlPage.find(attrs={'class':'table-data-sheet'})
-
+    specificOne =""
+    specificOneValue =""
+    specificTwo =""
+    specificTwoValue =""
+    specificThree =""
+    specificThreeValue =""
     boxProductHtmls = htmlPage.find(attrs={'class':'product_attributes clearfix'}).find_all('fieldset')
+    i = 0
     for boxProductHtml in boxProductHtmls :
-            print('A')
-            print(boxProductHtml.find('label').text)
-            print(boxProductHtml.find(is_checked).find_next_sibling('span').text)
-            print('B')
-    
-    print(boxProductHtml)
+            i = i+1
+            if(i==1):
+                specificOne=boxProductHtml.find('label').text
+                specificOneValue=boxProductHtml.find(is_checked).find_next_sibling('span').text
+            if(i==2) :
+              specificTwo=boxProductHtml.find('label').text
+              specificTwoValue=boxProductHtml.find(is_checked).find_next_sibling('span').text
+            if(i==3) :
+              specificThree=boxProductHtml.find('label').text
+              specificThreeValue=boxProductHtml.find(is_checked).find_next_sibling('span').text
+    item = {
+        'url':url,
+        'ProductReference':ProductReference,
+        'Name':productName,
+        'Brand':brand,
+        'ShortDescription':ShortDescription,
+        'specificOne':specificOne,
+        'specificOneValue':specificOneValue,
+        'specificTwo':specificTwo,
+        'specificTwoValue':specificTwoValue,
+        'specificThree':specificThree,
+        'specificThreeValue':specificThreeValue,
+        'DataSheet':DataSheet
+    }
+    return item
 
 def get_html(url):
     contents = requests.get(url)
     respond = bs4.BeautifulSoup(contents.text, 'html.parser')
     return respond
 
-# brands = call_brands()
-# print(brands)
-list_data = call_list()
-detail_page = detail_url()
-#https://redstarexhaustusa.com/porsche-992-911-turbo-headers
-# https://redstarexhaustusa.com/aston-martin-db11-40-primary-downpipes
+dataCollect = []
+brands = call_brands()
+for brand in brands :
+    brandUrl = brand['url']
+    list_data_details = call_list(brandUrl)
+    for list_data_detail in list_data_details :
+        detail_page = detail_url(list_data_detail['url'])
+        print("detail-->",detail_page)
+        dataCollect.append(detail_page)
+
+root = 'csv'
+df = pd.DataFrame(dataCollect)
+df.to_csv(root + '/redExhaust-full.csv', index=False)
+print("finish")
